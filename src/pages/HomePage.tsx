@@ -7,13 +7,25 @@ import { SettingsDialog } from '@/components/SettingsDialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Send, Sparkles } from 'lucide-react';
-import type { Message, ToolContext } from '../../worker/types';
+import type { Message, ToolContext, SessionInfo } from '../../worker/types';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 export function HomePage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sessions, setSessions] = useState<SessionInfo[]>([]);
+
+  const loadSessions = async () => {
+    const res = await chatService.listSessions();
+    if (res.success && res.data) {
+      setSessions(res.data);
+    } else {
+      setSessions([]);
+    }
+  };
+
+  const refreshSessions = () => loadSessions();
   const scrollRef = useRef<HTMLDivElement>(null);
   const getApiKeys = (): ToolContext => {
     const stored = localStorage.getItem('lore_api_keys');
@@ -26,6 +38,7 @@ export function HomePage() {
     }
   };
   useEffect(() => {
+    loadSessions();
     loadMessages();
     const keys = getApiKeys();
     if (!keys.tavilyKey && !keys.exaKey) {
@@ -45,24 +58,28 @@ export function HomePage() {
     const res = await chatService.sendMessage(userMsg, keys);
     if (res.success && res.data) {
       setMessages(res.data.messages);
+      refreshSessions();
     }
     setIsProcessing(false);
   };
   const handleSessionSelect = (id: string) => {
     chatService.switchSession(id);
     loadMessages();
+    refreshSessions();
   };
   const handleNewSession = async () => {
     const res = await chatService.createSession();
     if (res.success && res.data) {
       chatService.switchSession(res.data.sessionId);
       setMessages([]);
+      refreshSessions();
     }
   };
   return (
     <SidebarProvider defaultOpen={true}>
-      <AppSidebar 
-        onSessionSelect={handleSessionSelect} 
+      <AppSidebar
+        sessions={sessions}
+        onSessionSelect={handleSessionSelect}
         onNewSession={handleNewSession}
         onOpenSettings={() => setSettingsOpen(true)}
       />

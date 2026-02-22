@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Book, Plus, Settings, History } from "lucide-react";
 import {
   Sidebar,
@@ -13,13 +13,14 @@ import {
 } from "@/components/ui/sidebar";
 import { chatService } from "@/lib/chat";
 import type { SessionInfo } from "../../worker/types";
-export function AppSidebar({ onSessionSelect, onNewSession, onOpenSettings }: any) {
-  const [sessions, setSessions] = useState<SessionInfo[]>([]);
-  useEffect(() => {
-    chatService.listSessions().then(res => {
-      if (res.success && res.data) setSessions(res.data);
-    });
-  }, []);
+
+interface Props {
+  sessions: SessionInfo[];
+  onSessionSelect: (id: string) => void;
+  onNewSession: () => void;
+  onOpenSettings: () => void;
+}
+export function AppSidebar({ sessions, onSessionSelect, onNewSession, onOpenSettings }: Props) {
   return (
     <Sidebar className="border-r border-ink/10 bg-paper">
       <SidebarHeader className="p-4 border-b border-ink/5">
