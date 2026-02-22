@@ -1,138 +1,115 @@
-// Home page of the app.
-// Currently a demo placeholder "please wait" screen.
-// Replace this file with your actual app UI. Do not delete it to use some other file as homepage. Simply replace the entire contents of this file.
-
-import { useEffect, useMemo, useState } from 'react'
-import { Sparkles } from 'lucide-react'
-
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { HAS_TEMPLATE_DEMO, TemplateDemo } from '@/components/TemplateDemo'
-import { Button } from '@/components/ui/button'
-import { Toaster, toast } from '@/components/ui/sonner'
-
-function formatDuration(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
+import React, { useState, useEffect, useRef } from 'react';
+import { chatService } from '@/lib/chat';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { AppSidebar } from '@/components/app-sidebar';
+import { ChatInterface } from '@/components/ChatInterface';
+import { SettingsDialog } from '@/components/SettingsDialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Send, Sparkles } from 'lucide-react';
+import type { Message, ToolContext } from '../../worker/types';
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 export function HomePage() {
-  const [coins, setCoins] = useState(0)
-  const [isRunning, setIsRunning] = useState(false)
-  const [startedAt, setStartedAt] = useState<number | null>(null)
-  const [elapsedMs, setElapsedMs] = useState(0)
-
-  useEffect(() => {
-    if (!isRunning || startedAt === null) return
-
-    const t = setInterval(() => {
-      setElapsedMs(Date.now() - startedAt)
-    }, 250)
-
-    return () => clearInterval(t)
-  }, [isRunning, startedAt])
-
-  const formatted = useMemo(() => formatDuration(elapsedMs), [elapsedMs])
-
-  const onPleaseWait = () => {
-    setCoins((c) => c + 1)
-
-    if (!isRunning) {
-      // Resume from the current elapsed time
-      setStartedAt(Date.now() - elapsedMs)
-      setIsRunning(true)
-      toast.success('Building your app…', {
-        description: "Hang tight — we're setting everything up.",
-      })
-      return
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const getApiKeys = (): ToolContext => {
+    const stored = localStorage.getItem('lore_api_keys');
+    return stored ? JSON.parse(stored) : {};
+  };
+  const loadMessages = async () => {
+    const res = await chatService.getMessages();
+    if (res.success && res.data) {
+      setMessages(res.data.messages);
     }
-
-    setIsRunning(false)
-    toast.info('Still working…', {
-      description: 'You can come back in a moment.',
-    })
-  }
-
-  const onReset = () => {
-    setCoins(0)
-    setIsRunning(false)
-    setStartedAt(null)
-    setElapsedMs(0)
-    toast('Reset complete')
-  }
-
-  const onAddCoin = () => {
-    setCoins((c) => c + 1)
-    toast('Coin added')
-  }
-
+  };
+  useEffect(() => {
+    loadMessages();
+    const keys = getApiKeys();
+    if (!keys.tavilyKey && !keys.exaKey) {
+      setSettingsOpen(true);
+    }
+  }, []);
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isProcessing]);
+  const handleSend = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim() || isProcessing) return;
+    const userMsg = input;
+    setInput('');
+    setIsProcessing(true);
+    const keys = getApiKeys();
+    const res = await chatService.sendMessage(userMsg, keys);
+    if (res.success && res.data) {
+      setMessages(res.data.messages);
+    }
+    setIsProcessing(false);
+  };
+  const handleSessionSelect = (id: string) => {
+    chatService.switchSession(id);
+    loadMessages();
+  };
+  const handleNewSession = async () => {
+    const res = await chatService.createSession();
+    if (res.success && res.data) {
+      chatService.switchSession(res.data.sessionId);
+      setMessages([]);
+    }
+  };
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4 overflow-hidden relative">
-      <ThemeToggle />
-      <div className="absolute inset-0 bg-gradient-rainbow opacity-10 dark:opacity-20 pointer-events-none" />
-
-      <div className="text-center space-y-8 relative z-10 animate-fade-in w-full">
-        <div className="flex justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-primary floating">
-            <Sparkles className="w-8 h-8 text-white rotating" />
+    <SidebarProvider defaultOpen={true}>
+      <AppSidebar 
+        onSessionSelect={handleSessionSelect} 
+        onNewSession={handleNewSession}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+      <SidebarInset className="bg-paper relative flex flex-col h-screen overflow-hidden">
+        <header className="p-4 flex items-center justify-between border-b border-ink/5 bg-paper/80 backdrop-blur-sm z-10">
+          <div className="flex items-center gap-4">
+            <SidebarTrigger />
+            <h1 className="serif-heading text-xl font-bold flex items-center gap-2">
+              <Sparkles size={18} className="text-accent-purple" />
+              Lore Research Canvas
+            </h1>
           </div>
-        </div>
-
-        <div className="space-y-3">
-          <h1 className="text-5xl md:text-7xl font-display font-bold text-balance leading-tight">
-            Creating your <span className="text-gradient">app</span>
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto text-pretty">
-            Your application would be ready soon.
-          </p>
-        </div>
-
-        {HAS_TEMPLATE_DEMO ? (
-          <div className="max-w-5xl mx-auto text-left">
-            <TemplateDemo />
+          <div className="text-xs text-muted-foreground italic handwritten px-4 bg-ink/5 py-1 rounded-full">
+            Limited AI capacity applies across all sessions.
           </div>
-        ) : (
-          <>
-            <div className="flex justify-center gap-4">
-              <Button
-                size="lg"
-                onClick={onPleaseWait}
-                className="btn-gradient px-8 py-4 text-lg font-semibold hover:-translate-y-0.5 transition-all duration-200"
-                aria-live="polite"
+        </header>
+        <main className="flex-1 overflow-y-auto p-4 md:p-8">
+          <ChatInterface messages={messages} isProcessing={isProcessing} />
+          <div ref={scrollRef} />
+        </main>
+        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-paper via-paper/90 to-transparent">
+          <form onSubmit={handleSend} className="max-w-3xl mx-auto flex gap-2 items-end">
+            <div className="relative flex-1">
+              <textarea
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                placeholder="What deep truth shall we uncover today?"
+                className="w-full bg-white border-2 border-ink rounded-lg p-4 shadow-sketch focus:outline-none min-h-[60px] max-h-[200px] resize-none pr-12 handwritten text-xl"
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+              />
+              <Button 
+                type="submit" 
+                disabled={isProcessing || !input.trim()}
+                className="absolute right-2 bottom-3 bg-ink text-paper rounded-md hover:bg-ink/90 shadow-sm"
               >
-                Please Wait
+                <Send size={18} />
               </Button>
             </div>
-
-            <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-              <div>
-                Time elapsed:{' '}
-                <span className="font-medium tabular-nums text-foreground">{formatted}</span>
-              </div>
-              <div>
-                Coins:{' '}
-                <span className="font-medium tabular-nums text-foreground">{coins}</span>
-              </div>
-            </div>
-
-            <div className="flex justify-center gap-2">
-              <Button variant="outline" size="sm" onClick={onReset}>
-                Reset
-              </Button>
-              <Button variant="outline" size="sm" onClick={onAddCoin}>
-                Add Coin
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
-
-      <footer className="absolute bottom-8 text-center text-muted-foreground/80">
-        <p>Powered by Cloudflare</p>
-      </footer>
-
-      <Toaster richColors closeButton />
-    </div>
-  )
+          </form>
+        </div>
+        <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      </SidebarInset>
+    </SidebarProvider>
+  );
 }

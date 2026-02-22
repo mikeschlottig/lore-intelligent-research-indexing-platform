@@ -1,72 +1,61 @@
-/* This is a demo sidebar. **COMPULSORY** Edit this file to customize the sidebar OR remove it from appLayout OR don't use appLayout at all */
-import React from "react";
-import { Home, Layers, Compass, Star, Settings, LifeBuoy } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Book, Plus, Settings, History } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
   SidebarHeader,
-  SidebarSeparator,
-  SidebarInput,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarMenuAction,
-  SidebarMenuBadge,
+  SidebarGroup,
+  SidebarGroupLabel
 } from "@/components/ui/sidebar";
-
-export function AppSidebar(): JSX.Element {
+import { chatService } from "@/lib/chat";
+import type { SessionInfo } from "../../worker/types";
+export function AppSidebar({ onSessionSelect, onNewSession, onOpenSettings }: any) {
+  const [sessions, setSessions] = useState<SessionInfo[]>([]);
+  useEffect(() => {
+    chatService.listSessions().then(res => {
+      if (res.success && res.data) setSessions(res.data);
+    });
+  }, []);
   return (
-    <Sidebar>
-      <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1">
-          <div className="h-6 w-6 rounded-md bg-gradient-to-br from-indigo-500 to-purple-500" />
-          <span className="text-sm font-medium">Demo Sidebar</span>
+    <Sidebar className="border-r border-ink/10 bg-paper">
+      <SidebarHeader className="p-4 border-b border-ink/5">
+        <div className="flex items-center gap-2">
+          <Book className="text-accent-purple" />
+          <span className="serif-heading text-xl font-bold tracking-tight">The Journal</span>
         </div>
-        <SidebarInput placeholder="Search" />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive>
-                <a href="#"><Home /> <span>Home</span></a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <a href="#"><Layers /> <span>Projects</span></a>
-              </SidebarMenuButton>
-              <SidebarMenuAction>
-                <Star className="size-4" />
-              </SidebarMenuAction>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <a href="#"><Compass /> <span>Explore</span></a>
+              <SidebarMenuButton onClick={onNewSession} className="handwritten text-lg hover:bg-ink/5">
+                <Plus className="mr-2" /> New Inquiry
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
-
-        <SidebarSeparator />
-
         <SidebarGroup>
-          <SidebarGroupLabel>Quick Links</SidebarGroupLabel>
+          <SidebarGroupLabel className="handwritten text-md opacity-60">Past Records</SidebarGroupLabel>
           <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <a href="#"><Star /> <span>Starred</span></a>
-              </SidebarMenuButton>
-              <SidebarMenuBadge>5</SidebarMenuBadge>
-            </SidebarMenuItem>
+            {sessions.map(s => (
+              <SidebarMenuItem key={s.id}>
+                <SidebarMenuButton onClick={() => onSessionSelect(s.id)} className="truncate">
+                  <History className="size-4 opacity-50" />
+                  <span className="truncate">{s.title}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
-        <div className="px-2 text-xs text-muted-foreground">A simple shadcn sidebar</div>
+      <SidebarFooter className="p-4 border-t border-ink/5">
+        <SidebarMenuButton onClick={onOpenSettings} className="handwritten text-lg">
+          <Settings className="mr-2" /> Ledger Settings
+        </SidebarMenuButton>
       </SidebarFooter>
     </Sidebar>
   );
