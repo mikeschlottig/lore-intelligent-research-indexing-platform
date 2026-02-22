@@ -4,12 +4,11 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { ChatInterface } from '@/components/ChatInterface';
 import { ResearchIndex } from '@/components/ResearchIndex';
 import { SettingsDialog } from '@/components/SettingsDialog';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { Send, Sparkles, BookOpen, Search, Info } from 'lucide-react';
+import { Send, Sparkles, BookOpen, Info } from 'lucide-react';
 import type { Message, ToolContext, SessionInfo, IndexedItem, MCPServer } from '../../worker/types';
 export function HomePage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -89,10 +88,10 @@ export function HomePage() {
         onOpenSettings={() => setSettingsOpen(true)}
       />
       <SidebarInset className="bg-paper relative flex flex-col h-screen overflow-hidden">
-        <header className="p-4 flex items-center justify-between border-b border-ink/5 bg-paper/80 backdrop-blur-sm z-10">
-          <div className="flex items-center gap-4">
-            <SidebarTrigger />
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-auto">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full w-full">
+          <header className="p-4 flex items-center justify-between border-b border-ink/5 bg-paper/80 backdrop-blur-sm z-10 shrink-0">
+            <div className="flex items-center gap-4">
+              <SidebarTrigger />
               <TabsList className="bg-ink/5 border border-ink/10 h-9 p-1">
                 <TabsTrigger value="canvas" className="data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 text-xs font-bold">
                   <Sparkles size={14} className="mr-2" /> Canvas
@@ -102,49 +101,51 @@ export function HomePage() {
                   {index.length > 0 && <Badge className="h-4 min-w-4 px-1 text-[8px] bg-accent-purple">{index.length}</Badge>}
                 </TabsTrigger>
               </TabsList>
-            </Tabs>
-          </div>
-          <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground italic handwritten bg-ink/5 px-4 py-1.5 rounded-full">
-            <Info size={12} />
-            Shared AI limit applies.
-          </div>
-        </header>
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-32">
-          <TabsContent value="canvas" className="m-0 focus-visible:outline-none">
-            <ChatInterface messages={messages} isProcessing={isProcessing} />
-            <div ref={scrollRef} className="h-4" />
-          </TabsContent>
-          <TabsContent value="index" className="m-0 focus-visible:outline-none">
-            <ResearchIndex items={index} />
-          </TabsContent>
-        </main>
-        {activeTab === 'canvas' && (
-          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-paper via-paper/95 to-transparent">
-            <form onSubmit={handleSend} className="max-w-3xl mx-auto flex gap-2 items-end">
-              <div className="relative flex-1">
-                <textarea
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  placeholder="Inquire the archives..."
-                  className="w-full bg-white border-2 border-ink rounded-lg p-4 shadow-sketch focus:outline-none min-h-[60px] max-h-[200px] resize-none pr-12 handwritten text-xl"
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                />
-                <Button
-                  type="submit"
-                  disabled={isProcessing || !input.trim()}
-                  className="absolute right-2 bottom-3 bg-ink text-paper rounded-md hover:bg-ink/90"
-                >
-                  <Send size={18} />
-                </Button>
-              </div>
-            </form>
-          </div>
-        )}
+            </div>
+            <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground italic handwritten bg-ink/5 px-4 py-1.5 rounded-full">
+              <Info size={12} />
+              AI limit: use wisely.
+            </div>
+          </header>
+          <main className="flex-1 overflow-y-auto overflow-x-hidden">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 lg:py-12 min-h-full">
+              <TabsContent value="canvas" className="m-0 focus-visible:outline-none">
+                <ChatInterface messages={messages} isProcessing={isProcessing} />
+                <div ref={scrollRef} className="h-24" />
+              </TabsContent>
+              <TabsContent value="index" className="m-0 focus-visible:outline-none">
+                <ResearchIndex items={index} />
+              </TabsContent>
+            </div>
+          </main>
+          {activeTab === 'canvas' && (
+            <div className="shrink-0 p-6 bg-gradient-to-t from-paper via-paper/95 to-transparent z-20">
+              <form onSubmit={handleSend} className="max-w-3xl mx-auto flex gap-2 items-end">
+                <div className="relative flex-1">
+                  <textarea
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    placeholder="Inquire the archives..."
+                    className="w-full bg-white border-2 border-ink rounded-lg p-4 shadow-sketch focus:outline-none min-h-[60px] max-h-[200px] resize-none pr-12 handwritten text-xl"
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="submit"
+                    disabled={isProcessing || !input.trim()}
+                    className="absolute right-2 bottom-3 bg-ink text-paper rounded-md hover:bg-ink/90 active:scale-95 transition-all"
+                  >
+                    <Send size={18} />
+                  </Button>
+                </div>
+              </form>
+            </div>
+          )}
+        </Tabs>
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       </SidebarInset>
     </SidebarProvider>

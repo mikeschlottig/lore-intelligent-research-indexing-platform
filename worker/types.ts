@@ -43,3 +43,20 @@ export interface SessionInfo {
   createdAt: number;
   lastActive: number;
 }
+export interface TavilySearchResult {
+  results: Array<{
+    title: string;
+    url: string;
+    content: string;
+    score: number;
+  }>;
+}
+export interface ExaSearchResult {
+  results: Array<{
+    title: string;
+    url: string;
+    text: string;
+    score: number;
+    id: string;
+  }>;
+}
