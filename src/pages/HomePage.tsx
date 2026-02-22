@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { chatService } from '@/lib/chat';
 import { AppSidebar } from '@/components/app-sidebar';
 import { ChatInterface } from '@/components/ChatInterface';
@@ -8,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { Send, Sparkles, BookOpen, Info } from 'lucide-react';
+import { Send, Sparkles, BookOpen, Info, AlertCircle } from 'lucide-react';
 import type { Message, ToolContext, SessionInfo, IndexedItem, MCPServer } from '../../worker/types';
 export function HomePage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -43,10 +44,12 @@ export function HomePage() {
     loadMessages();
     const tools = getToolData();
     if (!tools.apiKeys.tavilyKey && !tools.apiKeys.exaKey) {
-      setSettingsOpen(true);
+      toast.info("Welcome to Lore. Open Settings to add your research API keys for the best experience.", {
+        duration: 5000,
+        icon: <Info className="size-4" />
+      });
     }
   }, []);
-  // Reliability: Improved scroll dependency
   useEffect(() => {
     if (activeTab === 'canvas' && (messages.length > 0 || isProcessing)) {
       scrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -64,6 +67,17 @@ export function HomePage() {
       setMessages(res.data.messages);
       setIndex(res.data.index || []);
       loadSessions();
+    } else {
+      console.error('[HomePage] Chat failed:', res.error);
+      const isConfigError = res.error?.toLowerCase().includes('config') || res.error?.toLowerCase().includes('placeholder');
+      toast.error(res.error || "The archivist encountered a failure.", {
+        description: isConfigError ? "Check your Cloudflare AI Gateway settings in wrangler.jsonc." : "Please try your request again later.",
+        duration: 8000,
+        action: isConfigError ? {
+          label: "Documentation",
+          onClick: () => window.open('https://developers.cloudflare.com/ai-gateway/', '_blank')
+        } : undefined
+      });
     }
     setIsProcessing(false);
   };
@@ -104,8 +118,8 @@ export function HomePage() {
               </TabsList>
             </div>
             <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground italic handwritten bg-ink/5 px-4 py-1.5 rounded-full">
-              <Info size={12} />
-              AI limit: use wisely.
+              <AlertCircle size={12} className="text-accent-purple" />
+              <span>Request limits apply across the platform.</span>
             </div>
           </header>
           <main className="flex-1 overflow-y-auto overflow-x-hidden">

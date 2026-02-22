@@ -45,7 +45,6 @@ export class ChatAgent extends Agent<Env, ChatState> {
   private async handleChatMessage(body: ChatPayload): Promise<Response> {
     const { message, apiKeys, mcpServers } = body;
     if (!message?.trim()) return Response.json({ success: false, error: API_RESPONSES.MISSING_MESSAGE }, { status: 400 });
-    // Robustness check for MCP server synchronization
     const validMcpServers = Array.isArray(mcpServers) ? mcpServers : this.state.mcpServers;
     if (Array.isArray(mcpServers)) {
       this.setState({ ...this.state, mcpServers: validMcpServers });
@@ -61,7 +60,10 @@ export class ChatAgent extends Agent<Env, ChatState> {
         ...apiKeys,
         mcpServers: validMcpServers
       };
-      const result = await this.chatHandler!.processMessage(message, this.state.messages, context);
+      if (!this.chatHandler) {
+        throw new Error("Chat handler not initialized");
+      }
+      const result = await this.chatHandler.processMessage(message, this.state.messages, context);
       if (result.toolCalls) {
         const newIndexItems: IndexedItem[] = [];
         for (const tc of result.toolCalls) {
@@ -99,9 +101,14 @@ export class ChatAgent extends Agent<Env, ChatState> {
       });
       return Response.json({ success: true, data: this.state });
     } catch (error: any) {
-      console.error('Agent processing error:', error);
+      console.error('[ChatAgent] Processing error stack:', error.stack || error);
       this.setState({ ...this.state, isProcessing: false });
-      return Response.json({ success: false, error: error.message }, { status: 500 });
+      const errorMessage = error.message || API_RESPONSES.PROCESSING_ERROR;
+      return Response.json({ 
+        success: false, 
+        error: errorMessage,
+        type: error.name === 'OpenAIError' ? 'AI_SERVICE_ERROR' : 'INTERNAL_ERROR'
+      }, { status: 500 });
     }
   }
 }
