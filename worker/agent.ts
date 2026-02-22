@@ -45,9 +45,10 @@ export class ChatAgent extends Agent<Env, ChatState> {
   private async handleChatMessage(body: ChatPayload): Promise<Response> {
     const { message, apiKeys, mcpServers } = body;
     if (!message?.trim()) return Response.json({ success: false, error: API_RESPONSES.MISSING_MESSAGE }, { status: 400 });
-    // Sync MCP servers from request to state
-    if (mcpServers) {
-      this.setState({ ...this.state, mcpServers });
+    // Robustness check for MCP server synchronization
+    const validMcpServers = Array.isArray(mcpServers) ? mcpServers : this.state.mcpServers;
+    if (Array.isArray(mcpServers)) {
+      this.setState({ ...this.state, mcpServers: validMcpServers });
     }
     const userMsg = createMessage('user', message);
     this.setState({
@@ -56,13 +57,11 @@ export class ChatAgent extends Agent<Env, ChatState> {
       isProcessing: true
     });
     try {
-      // Build tool context including dynamic MCP servers
       const context: ToolContext = {
         ...apiKeys,
-        mcpServers: this.state.mcpServers
+        mcpServers: validMcpServers
       };
       const result = await this.chatHandler!.processMessage(message, this.state.messages, context);
-      // Side-effect: Process indexing tool calls
       if (result.toolCalls) {
         const newIndexItems: IndexedItem[] = [];
         for (const tc of result.toolCalls) {
@@ -78,8 +77,8 @@ export class ChatAgent extends Agent<Env, ChatState> {
           }
           if (tc.name === 'search_index') {
             const query = (tc.arguments as any).query?.toLowerCase() || '';
-            const filtered = this.state.index.filter(item => 
-              item.title.toLowerCase().includes(query) || 
+            const filtered = this.state.index.filter(item =>
+              item.title.toLowerCase().includes(query) ||
               item.content.toLowerCase().includes(query)
             );
             tc.result = { results: filtered, count: filtered.length };
@@ -100,7 +99,7 @@ export class ChatAgent extends Agent<Env, ChatState> {
       });
       return Response.json({ success: true, data: this.state });
     } catch (error: any) {
-      console.error(error);
+      console.error('Agent processing error:', error);
       this.setState({ ...this.state, isProcessing: false });
       return Response.json({ success: false, error: error.message }, { status: 500 });
     }

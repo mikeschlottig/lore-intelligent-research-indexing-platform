@@ -33,7 +33,7 @@ export function ResearchIndex({ items }: { items: IndexedItem[] }) {
         </div>
       </div>
       {filteredItems.length === 0 ? (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="h-[500px] flex flex-col items-center justify-center border-4 border-dashed border-ink/5 rounded-3xl bg-ink/[0.01]"
@@ -63,23 +63,23 @@ export function ResearchIndex({ items }: { items: IndexedItem[] }) {
                       {item.title}
                     </CardTitle>
                     {item.sourceUrl && (
-                      <a 
-                        href={item.sourceUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="text-ink/20 hover:text-ink p-1 hover:bg-ink/5 rounded transition-colors"
+                      <a
+                        href={item.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-ink/20 hover:text-ink p-1 hover:bg-ink/5 rounded transition-all hover:scale-110 active:scale-90"
                       >
                         <ExternalLink size={18} />
                       </a>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground italic font-medium">
-                    <Clock size={12} className="text-accent-purple/50" />
-                    {formatDistanceToNow(item.timestamp)} ago
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground italic font-medium uppercase tracking-wider">
+                    <Clock size={10} className="text-accent-purple/50" />
+                    {formatDistanceToNow(item.timestamp, { addSuffix: true })}
                   </div>
                 </CardHeader>
                 <CardContent className="p-6 pt-2 flex-1 overflow-hidden relative">
-                  <p className="text-lg leading-relaxed text-ink/80 handwritten line-clamp-[7]">
+                  <p className="text-lg leading-relaxed text-ink/80 handwritten line-clamp-[6]">
                     {item.content}
                   </p>
                   <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none" />

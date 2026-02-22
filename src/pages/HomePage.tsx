@@ -34,8 +34,8 @@ export function HomePage() {
     const keys = localStorage.getItem('lore_api_keys');
     const mcp = localStorage.getItem('lore_mcp_servers');
     return {
-      apiKeys: keys ? JSON.parse(keys) as ToolContext : {},
-      mcpServers: mcp ? JSON.parse(mcp) as MCPServer[] : []
+      apiKeys: (keys ? JSON.parse(keys) : {}) as ToolContext,
+      mcpServers: (mcp ? JSON.parse(mcp) : []) as MCPServer[]
     };
   };
   useEffect(() => {
@@ -46,9 +46,10 @@ export function HomePage() {
       setSettingsOpen(true);
     }
   }, []);
+  // Reliability: Improved scroll dependency
   useEffect(() => {
-    if (activeTab === 'canvas') {
-      scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (activeTab === 'canvas' && (messages.length > 0 || isProcessing)) {
+      scrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }, [messages, isProcessing, activeTab]);
   const handleSend = async (e?: React.FormEvent) => {
@@ -58,7 +59,7 @@ export function HomePage() {
     setInput('');
     setIsProcessing(true);
     const { apiKeys, mcpServers } = getToolData();
-    const res = await chatService.sendMessage(userMsg, apiKeys);
+    const res = await chatService.sendMessage(userMsg, apiKeys, mcpServers);
     if (res.success && res.data) {
       setMessages(res.data.messages);
       setIndex(res.data.index || []);

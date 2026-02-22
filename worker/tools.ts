@@ -83,7 +83,6 @@ export async function getToolDefinitions() {
 }
 export async function executeTool(name: string, args: any, context: ToolContext): Promise<ToolResult> {
   try {
-    // Initialize MCP if servers are provided in context
     if (context.mcpServers && context.mcpServers.length > 0) {
       await mcpManager.initialize(context.mcpServers);
     }
@@ -109,7 +108,17 @@ export async function executeTool(name: string, args: any, context: ToolContext)
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ api_key: context.tavilyKey, urls: args.urls })
         });
-        return await response.json();
+        const data = await response.json() as any;
+        // Defensive Truncation: Prevent context window overflow
+        if (data.results && Array.isArray(data.results)) {
+          data.results = data.results.map((page: any) => ({
+            ...page,
+            raw_content: page.raw_content?.length > 15000 
+              ? page.raw_content.slice(0, 15000) + '... [TRUNCATED FOR LLM STABILITY]' 
+              : page.raw_content
+          }));
+        }
+        return data;
       }
       case 'exa_search': {
         if (!context.exaKey) return { error: 'Exa API key is missing.' };
@@ -122,10 +131,8 @@ export async function executeTool(name: string, args: any, context: ToolContext)
         return { content: JSON.stringify(data.results) };
       }
       case 'index_content':
-        // This tool is handled as a state side-effect in agent.ts but needs to return success
         return { success: true, message: 'Content sent to index.' };
       case 'search_index':
-        // Handled in agent logic to access DO state, but dummy return here
         return { info: 'Search results will be provided by the agent coordinator.' };
       default:
         if (mcpManager.isToolAvailable(name)) {
@@ -135,6 +142,7 @@ export async function executeTool(name: string, args: any, context: ToolContext)
         return { error: `Tool ${name} not implemented` };
     }
   } catch (error: any) {
+    console.error(`Tool execution error [${name}]:`, error);
     return { error: error.message || 'Tool execution failed' };
   }
 }
