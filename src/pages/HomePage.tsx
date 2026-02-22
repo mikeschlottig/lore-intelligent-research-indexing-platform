@@ -8,9 +8,16 @@ import { SettingsDialog } from '@/components/SettingsDialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { Send, Sparkles, BookOpen, Info, AlertCircle } from 'lucide-react';
+import { Send, Sparkles, BookOpen, Info, AlertCircle, Cpu } from 'lucide-react';
 import type { Message, ToolContext, SessionInfo, IndexedItem, MCPServer } from '../../worker/types';
+const MODELS = [
+  { id: 'google-ai-studio/gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+  { id: 'openai/gpt-4o', name: 'GPT-4o' },
+  { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
+  { id: 'meta-llama/llama-3.1-70b-instruct', name: 'Llama 3.1 70B' }
+];
 export function HomePage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [index, setIndex] = useState<IndexedItem[]>([]);
@@ -19,6 +26,7 @@ export function HomePage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [activeTab, setActiveTab] = useState('canvas');
+  const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
   const scrollRef = useRef<HTMLDivElement>(null);
   const loadSessions = async () => {
     const res = await chatService.listSessions();
@@ -29,6 +37,7 @@ export function HomePage() {
     if (res.success && res.data) {
       setMessages(res.data.messages);
       setIndex(res.data.index || []);
+      if (res.data.model) setSelectedModel(res.data.model);
     }
   };
   const getToolData = () => {
@@ -62,26 +71,35 @@ export function HomePage() {
     setInput('');
     setIsProcessing(true);
     const { apiKeys, mcpServers } = getToolData();
-    const res = await chatService.sendMessage(userMsg, apiKeys, mcpServers);
-    if (res.success && res.data) {
-      setMessages(res.data.messages);
-      setIndex(res.data.index || []);
+    // Pass selected model to backend
+    const res = await fetch(`/api/chat/${chatService['sessionId']}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: userMsg,
+        apiKeys,
+        mcpServers,
+        model: selectedModel
+      })
+    });
+    const result = await res.json();
+    if (result.success && result.data) {
+      setMessages(result.data.messages);
+      setIndex(result.data.index || []);
       loadSessions();
     } else {
-      console.error('[HomePage] Chat failed:', res.error);
-      const isConfigError = res.error?.toLowerCase().includes('config') || res.error?.toLowerCase().includes('placeholder');
-      toast.error(res.error || "The archivist encountered a failure.", {
+      console.error('[HomePage] Chat failed:', result.error);
+      const isConfigError = result.error?.toLowerCase().includes('config') || result.error?.toLowerCase().includes('placeholder');
+      toast.error(result.error || "The archivist encountered a failure.", {
         description: isConfigError ? "Check your Cloudflare AI Gateway settings in wrangler.jsonc." : "Please try your request again later.",
-        duration: 8000,
-        action: isConfigError ? {
-          label: "Documentation",
-          onClick: () => window.open('https://developers.cloudflare.com/ai-gateway/', '_blank')
-        } : undefined
+        duration: 8000
       });
     }
     setIsProcessing(false);
   };
   const handleSessionSelect = (id: string) => {
+    setMessages([]); // Immediate clear to prevent flickering
+    setIndex([]);
     chatService.switchSession(id);
     loadMessages();
   };
@@ -117,9 +135,26 @@ export function HomePage() {
                 </TabsTrigger>
               </TabsList>
             </div>
-            <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground italic handwritten bg-ink/5 px-4 py-1.5 rounded-full">
-              <AlertCircle size={12} className="text-accent-purple" />
-              <span>Request limits apply across the platform.</span>
+            <div className="flex items-center gap-3">
+              <div className="hidden lg:flex items-center gap-2">
+                <Cpu size={14} className="text-accent-purple" />
+                <Select value={selectedModel} onValueChange={setSelectedModel}>
+                  <SelectTrigger className="h-8 w-[180px] bg-white border-ink/20 text-[11px] font-bold uppercase tracking-tight shadow-sm hover:shadow-sketch transition-all">
+                    <SelectValue placeholder="Select Intelligence" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-paper border-2 border-ink shadow-sketch">
+                    {MODELS.map(m => (
+                      <SelectItem key={m.id} value={m.id} className="text-xs font-bold hover:bg-ink/5">
+                        {m.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="hidden sm:flex items-center gap-2 text-[10px] text-muted-foreground italic handwritten bg-ink/5 px-4 py-1.5 rounded-full">
+                <AlertCircle size={10} className="text-accent-purple" />
+                <span>Request limits apply.</span>
+              </div>
             </div>
           </header>
           <main className="flex-1 overflow-y-auto overflow-x-hidden">

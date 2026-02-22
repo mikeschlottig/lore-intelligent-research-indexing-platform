@@ -1,12 +1,31 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, FileText, Loader2, Sparkles } from 'lucide-react';
+import { Search, FileText, Loader2, Sparkles, ChevronDown, ChevronUp, Terminal } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { Message, ToolCall } from '../../worker/types';
+const LOADING_STATES = [
+  "Consulting the archives...",
+  "Analyzing research results...",
+  "Searching neural nodes...",
+  "Extracting document data...",
+  "Cross-referencing indices...",
+  "Synthesizing findings..."
+];
 export function ChatInterface({ messages, isProcessing }: { messages: Message[], isProcessing: boolean }) {
+  const [loadingText, setLoadingText] = useState(LOADING_STATES[0]);
+  useEffect(() => {
+    let interval: any;
+    if (isProcessing) {
+      interval = setInterval(() => {
+        setLoadingText(LOADING_STATES[Math.floor(Math.random() * LOADING_STATES.length)]);
+      }, 2500);
+    }
+    return () => clearInterval(interval);
+  }, [isProcessing]);
   return (
     <div className="max-w-3xl mx-auto w-full space-y-10">
       <AnimatePresence initial={false} mode="popLayout">
@@ -38,7 +57,7 @@ export function ChatInterface({ messages, isProcessing }: { messages: Message[],
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6"
+                  className="grid grid-cols-1 gap-4 mt-6"
                 >
                   {m.toolCalls.map((tc, i) => (
                     <ToolResultCard key={tc.id || i} toolCall={tc} index={i} />
@@ -53,52 +72,86 @@ export function ChatInterface({ messages, isProcessing }: { messages: Message[],
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="flex items-center gap-3 text-accent-purple/70 handwritten text-2xl italic animate-pulse"
+          className="flex items-center gap-3 text-accent-purple/70 handwritten text-2xl italic"
         >
           <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Consulting the archives...</span>
+          <motion.span
+            key={loadingText}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            {loadingText}
+          </motion.span>
         </motion.div>
       )}
     </div>
   );
 }
 function ToolResultCard({ toolCall, index }: { toolCall: ToolCall, index: number }) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const isSearch = toolCall.name.includes('search');
-  const rotation = (index % 2 === 0 ? 1.5 : -1.5);
-  // Refined Argument Truncation for aesthetic maintenance
   const argsString = JSON.stringify(toolCall.arguments);
-  const displayArgs = argsString.length > 100 
-    ? argsString.slice(0, 97) + '...' 
+  const displayArgs = argsString.length > 100
+    ? argsString.slice(0, 97) + '...'
     : argsString;
   return (
     <motion.div
-      whileHover={{ scale: 1.02, rotate: 0 }}
-      initial={{ rotate: rotation, opacity: 0, scale: 0.9 }}
-      animate={{ rotate: rotation, opacity: 1, scale: 1 }}
-      className="origin-center"
+      layout
+      className="w-full"
     >
-      <Card className="p-4 border-2 border-ink/10 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-sketch transition-all duration-300 relative overflow-hidden h-full flex flex-col justify-between">
-        <div className="absolute top-0 right-0 p-1 opacity-5">
-          <Sparkles size={40} />
-        </div>
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="p-1.5 rounded-full bg-ink/5">
-              {isSearch ? <Search size={12} className="text-accent-purple" /> : <FileText size={12} className="text-ink" />}
+      <Card className="border-2 border-ink/10 bg-white shadow-sm hover:shadow-sketch transition-all duration-300 relative overflow-hidden flex flex-col">
+        <div className="p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-ink/5">
+              {isSearch ? <Search size={14} className="text-accent-purple" /> : <FileText size={14} className="text-ink" />}
             </div>
-            <span className="text-[9px] font-black uppercase tracking-widest text-ink/40">Dispatch: {toolCall.name}</span>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-ink/40 block">Tool Dispatch</span>
+              <span className="font-mono text-xs font-bold">{toolCall.name}</span>
+            </div>
           </div>
-          <div className="text-[10px] text-muted-foreground font-mono bg-ink/[0.03] p-2 rounded mb-3 break-all">
-            {displayArgs}
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="h-7 px-2 text-[10px] font-bold gap-1 hover:bg-ink/5"
+            >
+              {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              {isExpanded ? "Close Data" : "Inspect Result"}
+            </Button>
+            <Badge variant="secondary" className="bg-accent-purple/10 text-accent-purple border-accent-purple/20 text-[9px] px-2 py-0 uppercase font-black">
+              COMPLETED
+            </Badge>
           </div>
         </div>
-        <div className="flex justify-end">
-          {toolCall.result && typeof toolCall.result === 'object' && 'error' in (toolCall.result as any) ? (
-            <Badge variant="destructive" className="text-[8px] px-2 py-0 h-4">ERROR</Badge>
-          ) : (
-            <Badge variant="secondary" className="bg-accent-purple/10 text-accent-purple border-accent-purple/20 text-[8px] px-2 py-0 h-4 uppercase font-black">SECURED</Badge>
+        {!isExpanded && (
+          <div className="px-4 pb-4">
+            <div className="text-[10px] text-muted-foreground font-mono bg-ink/[0.03] p-2 rounded truncate">
+              {displayArgs}
+            </div>
+          </div>
+        )}
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden bg-ink/[0.02] border-t border-ink/5"
+            >
+              <div className="p-4 space-y-3">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-ink/50 uppercase">
+                  <Terminal size={12} /> Raw JSON Payload
+                </div>
+                <pre className="text-[11px] font-mono bg-white p-4 border border-ink/10 rounded-lg overflow-x-auto max-h-[400px] leading-relaxed shadow-inner">
+                  {JSON.stringify(toolCall.result || { status: 'No data returned' }, null, 2)}
+                </pre>
+              </div>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
       </Card>
     </motion.div>
   );

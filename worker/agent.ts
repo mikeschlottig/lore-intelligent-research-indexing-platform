@@ -8,6 +8,7 @@ interface ChatPayload {
   message: string;
   apiKeys: ToolContext;
   mcpServers?: MCPServer[];
+  model?: string;
 }
 export class ChatAgent extends Agent<Env, ChatState> {
   private chatHandler?: ChatHandler;
@@ -25,6 +26,7 @@ export class ChatAgent extends Agent<Env, ChatState> {
       this.env.CF_AI_API_KEY,
       this.state.model
     );
+    console.log(`[ChatAgent] Started session ${this.state.sessionId} with model ${this.state.model}`);
   }
   async onRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -43,8 +45,17 @@ export class ChatAgent extends Agent<Env, ChatState> {
     return Response.json({ success: false, error: API_RESPONSES.NOT_FOUND }, { status: 404 });
   }
   private async handleChatMessage(body: ChatPayload): Promise<Response> {
-    const { message, apiKeys, mcpServers } = body;
-    if (!message?.trim()) return Response.json({ success: false, error: API_RESPONSES.MISSING_MESSAGE }, { status: 400 });
+    const { message, apiKeys, mcpServers, model } = body;
+    if (!message?.trim()) {
+      return Response.json({ success: false, error: API_RESPONSES.MISSING_MESSAGE }, { status: 400 });
+    }
+    // Dynamic Model Switching
+    if (model && model !== this.state.model) {
+      console.log(`[ChatAgent] Switching model: ${this.state.model} -> ${model}`);
+      this.state.model = model;
+      this.chatHandler?.updateModel(model);
+      this.setState({ ...this.state, model });
+    }
     const validMcpServers = Array.isArray(mcpServers) ? mcpServers : this.state.mcpServers;
     if (Array.isArray(mcpServers)) {
       this.setState({ ...this.state, mcpServers: validMcpServers });
@@ -63,10 +74,12 @@ export class ChatAgent extends Agent<Env, ChatState> {
       if (!this.chatHandler) {
         throw new Error("Chat handler not initialized");
       }
+      console.log(`[ChatAgent] Processing message. Tools active: ${context.mcpServers?.length ?? 0} MCP servers.`);
       const result = await this.chatHandler.processMessage(message, this.state.messages, context);
       if (result.toolCalls) {
         const newIndexItems: IndexedItem[] = [];
         for (const tc of result.toolCalls) {
+          console.log(`[ChatAgent] Tool Execution: ${tc.name} [ID: ${tc.id}]`);
           if (tc.name === 'index_content') {
             const args = tc.arguments as any;
             newIndexItems.push({
@@ -101,11 +114,11 @@ export class ChatAgent extends Agent<Env, ChatState> {
       });
       return Response.json({ success: true, data: this.state });
     } catch (error: any) {
-      console.error('[ChatAgent] Processing error stack:', error.stack || error);
+      console.error('[ChatAgent] Processing error:', error);
       this.setState({ ...this.state, isProcessing: false });
       const errorMessage = error.message || API_RESPONSES.PROCESSING_ERROR;
-      return Response.json({ 
-        success: false, 
+      return Response.json({
+        success: false,
         error: errorMessage,
         type: error.name === 'OpenAIError' ? 'AI_SERVICE_ERROR' : 'INTERNAL_ERROR'
       }, { status: 500 });
