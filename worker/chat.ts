@@ -11,11 +11,17 @@ export class ChatHandler {
   async processMessage(
     message: string,
     history: Message[],
-    context: ToolContext,
-    onChunk?: (chunk: string) => void
+    context: ToolContext
   ): Promise<{ content: string; toolCalls?: ToolCall[] }> {
+    const systemPrompt = `You are Lore, an intelligent research platform. 
+Your goal is to perform deep, grounded research using a multi-step loop:
+1. SEARCH: Use Tavily or Exa to find broad or semantic links.
+2. EXTRACT: Use 'tavily_extract' to pull raw text from promising URLs.
+3. INDEX: Use 'index_content' to save key facts or document snippets to the research journal.
+4. ANALYZE: Synthesize the findings into a clear, serif-styled response.
+Always cite sources. If the user asks for similar links, use 'exa_search'. If you encounter dynamic needs (files, code, etc.), use available MCP tools.`;
     const messages = [
-      { role: 'system', content: 'You are Lore, a deep research assistant. Use the provided tools to find, extract, and verify information from the web. Present findings clearly.' },
+      { role: 'system', content: systemPrompt },
       ...history.map(m => ({ role: m.role, content: m.content })),
       { role: 'user', content: message }
     ] as any[];
@@ -29,13 +35,18 @@ export class ChatHandler {
     const responseMessage = completion.choices[0].message;
     if (responseMessage.tool_calls) {
       const toolCalls: ToolCall[] = await Promise.all(
-        responseMessage.tool_calls.map(async (tc) => {
+        responseMessage.tool_calls.map(async (tc: any) => {
           const args = JSON.parse(tc.function.arguments);
           const result = await executeTool(tc.function.name, args, context);
-          return { id: tc.id, name: tc.function.name, arguments: args, result };
+          return { 
+            id: tc.id, 
+            name: tc.function.name, 
+            arguments: args, 
+            result 
+          };
         })
       );
-      // Generate final response with tool results
+      // Recursive step for tool response
       const finalCompletion = await this.client.chat.completions.create({
         model: this.model,
         messages: [
@@ -49,7 +60,7 @@ export class ChatHandler {
         ]
       });
       return {
-        content: finalCompletion.choices[0].message.content || 'Research complete.',
+        content: finalCompletion.choices[0].message.content || 'Research loop complete.',
         toolCalls
       };
     }

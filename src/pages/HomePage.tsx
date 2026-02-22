@@ -1,78 +1,83 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { chatService } from '@/lib/chat';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { AppSidebar } from '@/components/app-sidebar';
 import { ChatInterface } from '@/components/ChatInterface';
+import { ResearchIndex } from '@/components/ResearchIndex';
 import { SettingsDialog } from '@/components/SettingsDialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Sparkles } from 'lucide-react';
-import type { Message, ToolContext, SessionInfo } from '../../worker/types';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Send, Sparkles, BookOpen, Search, Info } from 'lucide-react';
+import type { Message, ToolContext, SessionInfo, IndexedItem, MCPServer } from '../../worker/types';
 export function HomePage() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [index, setIndex] = useState<IndexedItem[]>([]);
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
-
+  const [activeTab, setActiveTab] = useState('canvas');
+  const scrollRef = useRef<HTMLDivElement>(null);
   const loadSessions = async () => {
     const res = await chatService.listSessions();
-    if (res.success && res.data) {
-      setSessions(res.data);
-    } else {
-      setSessions([]);
-    }
-  };
-
-  const refreshSessions = () => loadSessions();
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const getApiKeys = (): ToolContext => {
-    const stored = localStorage.getItem('lore_api_keys');
-    return stored ? JSON.parse(stored) : {};
+    if (res.success && res.data) setSessions(res.data);
   };
   const loadMessages = async () => {
     const res = await chatService.getMessages();
     if (res.success && res.data) {
       setMessages(res.data.messages);
+      setIndex(res.data.index || []);
     }
+  };
+  const getToolData = () => {
+    const keys = localStorage.getItem('lore_api_keys');
+    const mcp = localStorage.getItem('lore_mcp_servers');
+    return {
+      apiKeys: keys ? JSON.parse(keys) as ToolContext : {},
+      mcpServers: mcp ? JSON.parse(mcp) as MCPServer[] : []
+    };
   };
   useEffect(() => {
     loadSessions();
     loadMessages();
-    const keys = getApiKeys();
-    if (!keys.tavilyKey && !keys.exaKey) {
+    const tools = getToolData();
+    if (!tools.apiKeys.tavilyKey && !tools.apiKeys.exaKey) {
       setSettingsOpen(true);
     }
   }, []);
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isProcessing]);
+    if (activeTab === 'canvas') {
+      scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isProcessing, activeTab]);
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim() || isProcessing) return;
     const userMsg = input;
     setInput('');
     setIsProcessing(true);
-    const keys = getApiKeys();
-    const res = await chatService.sendMessage(userMsg, keys);
+    const { apiKeys, mcpServers } = getToolData();
+    const res = await chatService.sendMessage(userMsg, apiKeys);
     if (res.success && res.data) {
       setMessages(res.data.messages);
-      refreshSessions();
+      setIndex(res.data.index || []);
+      loadSessions();
     }
     setIsProcessing(false);
   };
   const handleSessionSelect = (id: string) => {
     chatService.switchSession(id);
     loadMessages();
-    refreshSessions();
   };
   const handleNewSession = async () => {
     const res = await chatService.createSession();
     if (res.success && res.data) {
       chatService.switchSession(res.data.sessionId);
       setMessages([]);
-      refreshSessions();
+      setIndex([]);
+      loadSessions();
     }
   };
   return (
@@ -87,44 +92,59 @@ export function HomePage() {
         <header className="p-4 flex items-center justify-between border-b border-ink/5 bg-paper/80 backdrop-blur-sm z-10">
           <div className="flex items-center gap-4">
             <SidebarTrigger />
-            <h1 className="serif-heading text-xl font-bold flex items-center gap-2">
-              <Sparkles size={18} className="text-accent-purple" />
-              Lore Research Canvas
-            </h1>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-auto">
+              <TabsList className="bg-ink/5 border border-ink/10 h-9 p-1">
+                <TabsTrigger value="canvas" className="data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 text-xs font-bold">
+                  <Sparkles size={14} className="mr-2" /> Canvas
+                </TabsTrigger>
+                <TabsTrigger value="index" className="data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 text-xs font-bold gap-2">
+                  <BookOpen size={14} /> Journal
+                  {index.length > 0 && <Badge className="h-4 min-w-4 px-1 text-[8px] bg-accent-purple">{index.length}</Badge>}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
-          <div className="text-xs text-muted-foreground italic handwritten px-4 bg-ink/5 py-1 rounded-full">
-            Limited AI capacity applies across all sessions.
+          <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground italic handwritten bg-ink/5 px-4 py-1.5 rounded-full">
+            <Info size={12} />
+            Shared AI limit applies.
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 md:p-8">
-          <ChatInterface messages={messages} isProcessing={isProcessing} />
-          <div ref={scrollRef} />
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-32">
+          <TabsContent value="canvas" className="m-0 focus-visible:outline-none">
+            <ChatInterface messages={messages} isProcessing={isProcessing} />
+            <div ref={scrollRef} className="h-4" />
+          </TabsContent>
+          <TabsContent value="index" className="m-0 focus-visible:outline-none">
+            <ResearchIndex items={index} />
+          </TabsContent>
         </main>
-        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-paper via-paper/90 to-transparent">
-          <form onSubmit={handleSend} className="max-w-3xl mx-auto flex gap-2 items-end">
-            <div className="relative flex-1">
-              <textarea
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                placeholder="What deep truth shall we uncover today?"
-                className="w-full bg-white border-2 border-ink rounded-lg p-4 shadow-sketch focus:outline-none min-h-[60px] max-h-[200px] resize-none pr-12 handwritten text-xl"
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-              />
-              <Button 
-                type="submit" 
-                disabled={isProcessing || !input.trim()}
-                className="absolute right-2 bottom-3 bg-ink text-paper rounded-md hover:bg-ink/90 shadow-sm"
-              >
-                <Send size={18} />
-              </Button>
-            </div>
-          </form>
-        </div>
+        {activeTab === 'canvas' && (
+          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-paper via-paper/95 to-transparent">
+            <form onSubmit={handleSend} className="max-w-3xl mx-auto flex gap-2 items-end">
+              <div className="relative flex-1">
+                <textarea
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  placeholder="Inquire the archives..."
+                  className="w-full bg-white border-2 border-ink rounded-lg p-4 shadow-sketch focus:outline-none min-h-[60px] max-h-[200px] resize-none pr-12 handwritten text-xl"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                />
+                <Button
+                  type="submit"
+                  disabled={isProcessing || !input.trim()}
+                  className="absolute right-2 bottom-3 bg-ink text-paper rounded-md hover:bg-ink/90"
+                >
+                  <Send size={18} />
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       </SidebarInset>
     </SidebarProvider>

@@ -1,25 +1,19 @@
 export interface ApiResponse<T = unknown> { success: boolean; data?: T; error?: string; }
+export interface MCPServer {
+  name: string;
+  url: string;
+}
+export interface IndexedItem {
+  id: string;
+  title: string;
+  content: string;
+  sourceUrl?: string;
+  timestamp: number;
+}
 export interface ToolContext {
   tavilyKey?: string;
   exaKey?: string;
-}
-export interface TavilySearchResult {
-  results: Array<{
-    title: string;
-    url: string;
-    content: string;
-    score: number;
-  }>;
-}
-export interface ExaSearchResult {
-  results: Array<{
-    title: string;
-    url: string;
-    id: string;
-    score: number;
-    publishedDate?: string;
-    author?: string;
-  }>;
+  mcpServers?: MCPServer[];
 }
 export interface Message {
   role: 'user' | 'assistant' | 'system' | 'tool';
@@ -40,7 +34,8 @@ export interface ChatState {
   sessionId: string;
   isProcessing: boolean;
   model: string;
-  streamingMessage?: string;
+  index: IndexedItem[];
+  mcpServers: MCPServer[];
 }
 export interface SessionInfo {
   id: string;
