@@ -1,6 +1,6 @@
 # Cloudflare Workers AI Chat Agent Template
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/mikeschlottig/lore-intelligent-research-indexing-platform)
 
 ## Overview
 
@@ -109,7 +109,7 @@ Perfect for developers building conversational AI agents, research platforms, or
    ```
 
 4. **One-Click Deploy**
-   [cloudflarebutton]
+   [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/mikeschlottig/lore-intelligent-research-indexing-platform)
 
 ## Environment Variables
 
