@@ -1,3 +1,15 @@
+/**
+ * worker/config.ts
+ * ----------------
+ * Constants-only module for centralized API response strings and other static configuration.
+ *
+ * IMPORTANT:
+ * - This file is NOT a Durable Object extension point.
+ * - Do NOT move/duplicate session-management logic into this module.
+ *
+ * Session management extension point:
+ * - Extend the Durable Object in `worker/app-controller.ts` (AppController) for session lifecycle features.
+ */
 export const API_RESPONSES = {
   MISSING_MESSAGE: 'Message required',
   INVALID_MODEL: 'Invalid model',
